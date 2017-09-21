@@ -1,0 +1,122 @@
+
+@HVLayout
+scchart DDDPacemaker {
+  input signal VSense, ASense;
+  input signal LRI_TO, URI_TO, PVARP_TO, VRP_TO, AVI_TO, AEI_TO;
+  output signal VPace, APace;
+
+  initial state top {
+    signal LRI_start, LRI_stop, LRI_ex;
+    signal URI_start, URI_stop, URI_ex;
+    signal PVARP_start, PVARP_stop, PVARP_ex;
+    signal VRP_start, VRP_stop, VRP_ex;
+    signal AVI_start, AVI_stop, AVI_ex;
+    signal AEI_start, AEI_stop, AEI_ex;
+
+    region LRI:
+
+    initial state init
+    --> commit1 with VSense;
+
+    connector state commit1
+    --> waitVRP immediate with / LRI_start;
+
+    state waitVRP
+    --> waitLRI with VRP_ex;
+
+    state waitLRI "waitLRI"
+    --> commit2 with VSense
+    --> commit3 with LRI_ex;
+
+    connector state commit2
+    --> intState immediate with / LRI_stop; //connector state commit3 --> commit1 immediate with /VPace;
+    connector state commit3
+    --> intState immediate with / VPace;
+
+    state intState
+    --> waitVRP with / LRI_start;
+
+    region LRI_timer:
+
+    initial state idle
+    --> timer with LRI_start;
+
+    state timer "timer"
+    --> idle with LRI_stop
+    --> idle with LRI_TO / LRI_ex; // TODO: URI_Timer
+
+
+    region URI:
+
+    initial state init
+    --> commit1 with VSense;
+
+    connector state commit1
+    --> waitVRP immediate with / URI_start;
+
+    state waitVRP
+    --> waitURI with VRP_ex;
+
+    state waitURI "waitURI"
+    --> intState with URI_ex; // once URI_ex is high, timer is over so VP/VS can now run
+
+    state intState
+    --> waitVRP with / URI_start;
+
+    region URI_timer:
+
+    initial state idle
+    --> timer with URI_start;
+
+    state timer "timer"
+    --> idle with URI_TO / URI_ex;
+
+    region VRP:
+
+    initial state idle
+    --> commit1 with VSense
+    --> commit1 with VPace;
+
+    connector state commit1
+    --> waitVRP immediate with / VRP_start;
+
+    state waitVRP
+    --> idle with VRP_ex //--> comit2 with VSense;
+    --> waitVRP with VSense; //connector state comit2 --> waitVRP immediate;
+    // stays in VRP waiting, even if VS detected (becomes VR signal)
+
+
+    region VRP_timer: // VRP has no 'stop' because it is a static time period where VS/VP are ignored
+
+
+    initial state idle
+    --> timer with VRP_start;
+
+    state timer "timer"
+    --> idle with VRP_TO / VRP_ex;
+
+    region PVARP:
+
+    initial state idle
+    --> commit1 with ASense
+    --> commit1 with APace;
+
+    connector state commit1
+    --> waitPVARP immediate with / PVARP_start;
+
+    state waitPVARP
+    --> idle with PVARP_ex //--> commit2 with ASense;
+    --> waitPVARP with ASense; //connector state commit2 --> waitPVARP immediate;
+    // stays in PVARP waiting, even if AS detected (becomes AR signal)
+
+
+    region PVARP_timer: // PVARP has no 'stop' because it is a static time period where AS/AP are ignored
+
+
+    initial state idle
+    --> timer with PVARP_start;
+
+    state timer "timer"
+    --> idle with PVARP_TO / PVARP_ex;
+  };
+}
