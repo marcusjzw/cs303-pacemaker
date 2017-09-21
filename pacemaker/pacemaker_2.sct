@@ -12,11 +12,14 @@ scchart DDDPacemaker {
     signal VRP_start, VRP_stop, VRP_ex;
     signal AVI_start, AVI_stop, AVI_ex;
     signal AEI_start, AEI_stop, AEI_ex;
+ 	bool AR = false;
+    bool VR = false;
+    bool idleURI = true; // checks if URI is active, so AVI can move over if it is
 
     region LRI:
 
     initial state init
-    --> commit1 with VSense;
+    --> commit1 with VSense || VPace;
 
     connector state commit1
     --> waitVRP immediate with / LRI_start;
@@ -25,7 +28,7 @@ scchart DDDPacemaker {
     --> waitLRI with VRP_ex;
 
     state waitLRI "waitLRI"
-    --> commit2 with VSense
+    --> commit2 with (VSense || VPace)
     --> commit3 with LRI_ex;
 
     connector state commit2
@@ -49,14 +52,14 @@ scchart DDDPacemaker {
     region URI:
 
     initial state idle
-    --> commit1 with VSense
-    --> commit1 with VPace;
+    --> commit1 with VSense / idleURI = false
+    --> commit1 with VPace / idleURI = false;
 
     connector state commit1
     --> waitURI immediate with / URI_start;
 
     state waitURI
-    --> idle with URI_ex //--> comit2 with VSense;
+    --> idle with URI_ex / idleURI = true
     --> waitURI with VPace
     --> waitURI with VSense; //connector state comit2 --> waitVRP immediate;
     // stays in VRP waiting, even if VS detected (becomes VR signal)
@@ -79,8 +82,8 @@ scchart DDDPacemaker {
     --> waitVRP immediate with / VRP_start;
 
     state waitVRP
-    --> idle with VRP_ex //--> comit2 with VSense;
-    --> waitVRP with VSense; //connector state comit2 --> waitVRP immediate;
+    --> idle with VRP_ex / VR = false //--> comit2 with VSense;
+    --> waitVRP with VSense / VR = true; //connector state comit2 --> waitVRP immediate;
     // stays in VRP waiting, even if VS detected (becomes VR signal)
 
 
@@ -96,15 +99,15 @@ scchart DDDPacemaker {
     region PVARP:
 
     initial state idle
-    --> commit1 with ASense
-    --> commit1 with APace;
+    --> commit1 with VSense
+    --> commit1 with VPace;
 
     connector state commit1
     --> waitPVARP immediate with / PVARP_start;
 
     state waitPVARP
-    --> idle with PVARP_ex //--> commit2 with ASense;
-    --> waitPVARP with ASense; //connector state commit2 --> waitPVARP immediate;
+    --> idle with PVARP_ex / AR = false
+    --> waitPVARP with ASense / AR = true; // bool high 
     // stays in PVARP waiting, even if AS detected (becomes AR signal)
 
 
@@ -121,13 +124,13 @@ scchart DDDPacemaker {
     region AVI:
 
     initial state init
-    --> commit1 with ASense;
+    --> commit1 with (ASense && !AR);
 
     connector state commit1
     --> waitAVI immediate with / AVI_start;
 
     state waitAVI "waitAVI"
-    --> commit2 with VSense // if timeout has not occurred, block Asense signals
+    --> commit2 with VSense && !VR // if timeout has not occurred, block Asense signals
     --> commit3 with AVI_ex;
 	
 	connector state commit2
@@ -136,7 +139,7 @@ scchart DDDPacemaker {
     --> intState immediate with / VPace;
 
     state intState
-    --> waitAVI with / AVI_start;
+    --> waitAVI with !AR && (ASense || APace) / AVI_start;
 
     region AVI_timer:
 
@@ -145,18 +148,20 @@ scchart DDDPacemaker {
 
     state timer "timer"
     --> idle with AVI_stop
-    --> idle with AVI_TO / AVI_ex; 
-    
+    --> idle with (AVI_TO) / AVI_ex; 
+    // only assert VPace if URI is idle, or else listen to when URI wants it!
+    // tried to make it (AVI_TO && idleURI = true) but made
+    // the whole thing non deterministic.... maybe just import to C first
     region AEI:
 
     initial state init
-    --> commit1 with VSense;
+    --> commit1 with (VSense && !VR);
 
     connector state commit1
     --> waitAEI immediate with / AEI_start;
 
     state waitAEI "waitAEI"
-    --> commit2 with ASense // if timeout has not occurred, block Asense signals
+    --> commit2 with ASense && !AR // if timeout has not occurred, block Asense signals
     --> commit3 with AEI_ex;
 	
 	connector state commit2
@@ -165,7 +170,7 @@ scchart DDDPacemaker {
     --> intState immediate with / APace;
 
     state intState
-    --> waitAEI with / AEI_start;
+    --> waitAEI with !VR && (VSense || VPace) / AEI_start; // to ignore deassertion of PVARP when 
 
     region AEI_timer:
 
