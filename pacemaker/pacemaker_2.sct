@@ -14,7 +14,8 @@ scchart DDDPacemaker {
     signal AEI_start, AEI_stop, AEI_ex;
  	bool AR = false;
     bool VR = false;
-    bool idleURI = true; // checks if URI is active, so AVI can move over if it is
+    bool idleURI = true; // checks if URI is active, this should be checked when AVI wants to time out.
+    // if AVI wants to time out (thus assert VPace) but URI is active, forget it cos AVI is not as important
 
     region LRI:
 
@@ -32,7 +33,7 @@ scchart DDDPacemaker {
     --> commit3 with LRI_ex;
 
     connector state commit2
-    --> intState immediate with / LRI_stop; //connector state commit3 --> commit1 immediate with /VPace;
+    --> intState immediate with / LRI_stop; 
     connector state commit3
     --> intState immediate with / VPace;
 
@@ -48,7 +49,7 @@ scchart DDDPacemaker {
     --> idle with LRI_stop
     --> idle with LRI_TO / LRI_ex; 
 
-	// making URI kinda exactly like VRP - are they effectively the same? cept higher prio
+    // making URI kinda exactly like VRP - are they effectively the same? cept higher prio
     region URI:
 
     initial state idle
@@ -61,7 +62,7 @@ scchart DDDPacemaker {
     state waitURI
     --> idle with URI_ex / idleURI = true
     --> waitURI with VPace
-    --> waitURI with VSense; //connector state comit2 --> waitVRP immediate;
+    --> waitURI with VSense; 
     // stays in VRP waiting, even if VS detected (becomes VR signal)
 
     region URI_timer:
@@ -82,9 +83,9 @@ scchart DDDPacemaker {
     --> waitVRP immediate with / VRP_start;
 
     state waitVRP
-    --> idle with VRP_ex / VR = false //--> comit2 with VSense;
-    --> waitVRP with VSense / VR = true; //connector state comit2 --> waitVRP immediate;
-    // stays in VRP waiting, even if VS detected (becomes VR signal)
+    --> idle with VRP_ex / VR = false 
+    --> waitVRP with VSense / VR = true; 
+    // stays in VRP wait state, even if another VSense detected (i.e. becomes 'VR' signal)
 
 
     region VRP_timer: // VRP has no 'stop' because it is a static time period where VS/VP are ignored
@@ -124,7 +125,7 @@ scchart DDDPacemaker {
     region AVI:
 
     initial state init
-    --> commit1 with (ASense && !AR);
+    --> commit1 with (ASense && !AR); // only proceed provided it's not a 'fake' AR signal
 
     connector state commit1
     --> waitAVI immediate with / AVI_start;
@@ -151,11 +152,12 @@ scchart DDDPacemaker {
     --> idle with (AVI_TO) / AVI_ex; 
     // only assert VPace if URI is idle, or else listen to when URI wants it!
     // tried to make it (AVI_TO && idleURI = true) but made
-    // the whole thing non deterministic.... maybe just import to C first
+    // the whole system non deterministic.... maybe just import to C first
+    
     region AEI:
 
     initial state init
-    --> commit1 with (VSense && !VR);
+    --> commit1 with (VSense && !VR);  // only proceed provided not a 'fake' VR signal
 
     connector state commit1
     --> waitAEI immediate with / AEI_start;
