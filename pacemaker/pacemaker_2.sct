@@ -43,25 +43,23 @@ scchart DDDPacemaker {
 
     state timer "timer"
     --> idle with LRI_stop
-    --> idle with LRI_TO / LRI_ex; // TODO: URI_Timer
+    --> idle with LRI_TO / LRI_ex; 
 
-
+	// making URI kinda exactly like VRP - are they effectively the same? cept higher prio
     region URI:
 
-    initial state init
-    --> commit1 with VSense;
+    initial state idle
+    --> commit1 with VSense
+    --> commit1 with VPace;
 
     connector state commit1
-    --> waitVRP immediate with / URI_start;
+    --> waitURI immediate with / URI_start;
 
-    state waitVRP
-    --> waitURI with VRP_ex;
-
-    state waitURI "waitURI"
-    --> intState with URI_ex; // once URI_ex is high, timer is over so VP/VS can now run
-
-    state intState
-    --> waitVRP with / URI_start;
+    state waitURI
+    --> idle with URI_ex //--> comit2 with VSense;
+    --> waitURI with VPace
+    --> waitURI with VSense; //connector state comit2 --> waitVRP immediate;
+    // stays in VRP waiting, even if VS detected (becomes VR signal)
 
     region URI_timer:
 
@@ -118,5 +116,65 @@ scchart DDDPacemaker {
 
     state timer "timer"
     --> idle with PVARP_TO / PVARP_ex;
+    
+    
+    region AVI:
+
+    initial state init
+    --> commit1 with ASense;
+
+    connector state commit1
+    --> waitAVI immediate with / AVI_start;
+
+    state waitAVI "waitAVI"
+    --> commit2 with VSense // if timeout has not occurred, block Asense signals
+    --> commit3 with AVI_ex;
+	
+	connector state commit2
+	--> intState immediate with /AVI_stop;
+    connector state commit3
+    --> intState immediate with / VPace;
+
+    state intState
+    --> waitAVI with / AVI_start;
+
+    region AVI_timer:
+
+    initial state idle
+    --> timer with AVI_start;
+
+    state timer "timer"
+    --> idle with AVI_stop
+    --> idle with AVI_TO / AVI_ex; 
+    
+    region AEI:
+
+    initial state init
+    --> commit1 with VSense;
+
+    connector state commit1
+    --> waitAEI immediate with / AEI_start;
+
+    state waitAEI "waitAEI"
+    --> commit2 with ASense // if timeout has not occurred, block Asense signals
+    --> commit3 with AEI_ex;
+	
+	connector state commit2
+	--> intState immediate with /AEI_stop;
+    connector state commit3
+    --> intState immediate with / APace;
+
+    state intState
+    --> waitAEI with / AEI_start;
+
+    region AEI_timer:
+
+    initial state idle
+    --> timer with AEI_start;
+
+    state timer "timer"
+    --> idle with AEI_stop
+    --> idle with AEI_TO / AEI_ex; 
+    
   };
 }
