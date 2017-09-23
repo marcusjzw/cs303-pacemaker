@@ -5,7 +5,7 @@
 BSP_TYPE=hal
 BSP_DIR=.
 SOPC_DIR=../../
-SOPC_FILE=D:/cs303-pacemaker-master/DE2-115/system.sopcinfo
+SOPC_FILE=D:/cs303-group2/CCode/system.sopcinfo
 NIOS2_BSP_ARGS=""
 CPU_NAME=
 

@@ -2,9 +2,9 @@
  * alt_sys_init.c - HAL initialization source
  *
  * Machine generated for CPU 'cpu' in SOPC Builder design 'system'
- * SOPC Builder design path: D:/cs303-pacemaker-master/DE2-115/system.sopcinfo
+ * SOPC Builder design path: D:/cs303-group2/CCode/system.sopcinfo
  *
- * Generated: Fri Sep 22 10:32:32 NZST 2017
+ * Generated: Fri Sep 22 09:48:24 NZST 2017
  */
 
 /*
