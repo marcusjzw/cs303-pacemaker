@@ -28,11 +28,13 @@
 alt_u32 timer_isr_function(void *context) {
 	char *signal = (char*)context;
 	*signal = 1;
+	printf("timer stopped, Apace:%d\n", APace);
 	return 0;
 }
 
 alt_u32 led_off_isr_function(void *context) {
 	IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 0);
+
 	return 0;
 }
 
@@ -58,6 +60,7 @@ void button_isr_function(void *context, alt_u32 id) {
 //			ASense = 0;
 //		}
 //	}
+
 
 	if (temp == 1) { // key0 pressed
 		VSense = 1;
@@ -119,15 +122,19 @@ int main(void) {
 
 	reset();
 	while(1) {
+
+//		VPace = 0;
+//		APace = 0;
+
 		//Read IO
 		//Check the current mode
-		switchState = IORD_ALTERA_AVALON_PIO_DATA(SWITCHES_BASE);
-		for(i = 0; i < 2; i++) {
-			mask = 1 << i;
-			if(switchState & mask) {
-				mode = i;
-			}
-		}
+//		switchState = IORD_ALTERA_AVALON_PIO_DATA(SWITCHES_BASE);
+//		for(i = 0; i < 2; i++) {
+//			mask = 1 << i;
+//			if(switchState & mask) {
+//				mode = i;
+//			}
+//		}
 
 
 
@@ -139,51 +146,58 @@ int main(void) {
 
 		//Check if we need to start timers
 		if(_DDDPacemaker_local_LRI_start == 1) {
-			//printf("LRI timer started");
+			printf("LRI timer started, Apace:%d ", APace);
 			alt_alarm_start(&lri_timer, LRI_VALUE, timer_isr_function, lri_context);
 			_DDDPacemaker_local_LRI_start = 0;
 		}
 		if(_DDDPacemaker_local_URI_start == 1) {
-			//printf("URI timer started");
+			printf("URI timer started, Apace:%d ", APace);
 			alt_alarm_start(&uri_timer, URI_VALUE, timer_isr_function, uri_context);
 			_DDDPacemaker_local_URI_start = 0;
 		}
 		if(_DDDPacemaker_local_AVI_start == 1) {
-			//printf("AVI timer started");
+			printf("AVI timer started, Apace:%d ", APace);
 			alt_alarm_start(&avi_timer, AVI_VALUE, timer_isr_function, avi_context);
 			_DDDPacemaker_local_AVI_start = 0;
 		}
 		if(_DDDPacemaker_local_AEI_start== 1) {
-			//printf("AEI timer started");
-			alt_alarm_start(&aei_timer, AEI_VALUE, timer_isr_function, aei_context);
+			printf("AEI timer started, Apace:%d ", APace);
+			alt_alarm_start(&aei_timer, 5000, timer_isr_function, aei_context);
 			_DDDPacemaker_local_AEI_start= 0;
+			//printf("AEI timer stopped");
 		}
 		if(_DDDPacemaker_local_VRP_start == 1) {
-			//printf("VRP timer started");
+			printf("VRP timer started, Apace:%d ", APace);
 			alt_alarm_start(&vrp_timer, VRP_VALUE, timer_isr_function, vrp_context);
 			_DDDPacemaker_local_VRP_start = 0;
 		}
 		if(_DDDPacemaker_local_PVARP_start == 1) {
-			//printf("PVARP timer started");
+			printf("PVARP timer started, Apace:%d ", APace);
 			alt_alarm_start(&pvarp_timer, PVARP_VALUE, timer_isr_function, pvarp_context);
 			_DDDPacemaker_local_PVARP_start = 0;
 		}
 //		printf("LRI:%d, URI:%d, AVI:%d, AEI:%d, VRP:%d, PVARP:%d\n", \
 //				_DDDPacemaker_local_LRI_start, _DDDPacemaker_local_URI_start,_DDDPacemaker_local_AVI_start,_DDDPacemaker_local_AEI_start, _DDDPacemaker_local_VRP_start,_DDDPacemaker_local_PVARP_start);
 
+		int led_interrupt = 1;
+		void* led_context = (void*) &led_interrupt;
 		//Process pace output
-		if(VPace) {
-			output = 1;
+		if(VPace == 1) {
+			//output = 1;
 			printf("Vpace = 1");
 			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 1);
-			alt_alarm_start(&led_timer, 500, led_off_isr_function, NULL);
+			alt_alarm_start(&led_timer, 500, led_off_isr_function, led_context);
+			//VPace = 0;
 		}
-		if(APace) {
-			output = 2;
+		if(APace == 1) {
+			//output = 2;
 			printf("Apace = 1");
 			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 2);
-			alt_alarm_start(&led_timer, 500, led_off_isr_function, NULL);
+			alt_alarm_start(&led_timer, 500, led_off_isr_function, led_context);
+			//APace = 0;
 		}
+
+		//printf("Apace:%d ", APace);
 
 //		//Actuate based on processed output
 //		if((mode == 0) && (output)) {
@@ -194,9 +208,9 @@ int main(void) {
 		//Reset IO
 		VSense = 0;
 		ASense = 0;
-		output = 0;
-		VPace = 0;
-		APace = 0;
+//		output = 0;
+//		VPace = 0;
+//		APace = 0;
 
 	}
 
