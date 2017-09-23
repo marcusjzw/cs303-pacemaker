@@ -25,10 +25,75 @@
 #include "sys/alt_alarm.h"
 #include "timeouts.h"
 
-alt_u32 timer_isr_function(void *context) {
+//Timer contexts
+void *lri_context = &LRI_TO;
+void *uri_context = &URI_TO;
+void *avi_context = &AVI_TO;
+void *aei_context = &AEI_TO;
+void *pvarp_context = &PVARP_TO;
+void *vrp_context = &VRP_TO;
+
+//Register timers
+static alt_alarm lri_timer;
+static alt_alarm uri_timer;
+static alt_alarm avi_timer;
+static alt_alarm aei_timer;
+static alt_alarm pvarp_timer;
+static alt_alarm vrp_timer;
+
+alt_u32 timer_isr_function(void* context) {
 	char *signal = (char*)context;
 	*signal = 1;
 	printf("timer stopped, Apace:%d\n", APace);
+	return 0;
+}
+
+// AVI timer
+alt_u32 avi_timer_isr(void* context) {
+	volatile int* trigger = (volatile int*) context;
+	*trigger = 1;
+	AVI_TO = 1;
+	printf("AVI timeout");
+	return 0;
+}
+
+alt_u32 aei_timer_isr(void* context) {
+	volatile int* trigger = (volatile int*) context;
+	*trigger = 1;
+	AEI_TO = 1;
+	printf("AEI timeout");
+	return 0;
+}
+
+alt_u32 vrp_timer_isr(void* context) {
+	volatile int* trigger = (volatile int*) context;
+	*trigger = 1;
+	VRP_TO = 1;
+	printf("VRP timeout");
+	return 0;
+}
+
+alt_u32 pvarp_timer_isr(void* context) {
+	volatile int* trigger = (volatile int*) context;
+	*trigger = 1;
+	PVARP_TO = 1;
+	printf("PVARP timeout");
+	return 0;
+}
+
+alt_u32 lri_timer_isr(void* context) {
+	volatile int* trigger = (volatile int*) context;
+	*trigger = 1;
+	LRI_TO = 1;
+	printf("LRI timeout");
+	return 0;
+}
+
+alt_u32 uri_timer_isr(void* context) {
+	volatile int* trigger = (volatile int*) context;
+	*trigger = 1;
+	PVARP_TO = 1;
+	printf("URI timeout");
 	return 0;
 }
 
@@ -91,34 +156,20 @@ int main(void) {
 	//Mode 1 led timer to keep led on
 	static alt_alarm led_timer;
 
-	//Bitwise processing
-	int i;
-	int mask;
+//	//Bitwise processing
+//	int i;
+//	int mask;
 
-	//Timer contexts
-	void *lri_context = &LRI_TO;
-	void *uri_context = &URI_TO;
-	void *avi_context = &AVI_TO;
-	void *aei_context = &AEI_TO;
-	void *pvarp_context = &PVARP_TO;
-	void *vrp_context = &VRP_TO;
 
-	//Register timers
-	static alt_alarm lri_timer;
-	static alt_alarm uri_timer;
-	static alt_alarm avi_timer;
-	static alt_alarm aei_timer;
-	static alt_alarm pvarp_timer;
-	static alt_alarm vrp_timer;
 
 	//Register button isr
 	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE, 0);
 	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(BUTTONS_BASE, 0x3);
 	alt_irq_register(BUTTONS_IRQ, buttonContext, button_isr_function);
 	IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 0);
-
-	//Output binary vector
-	int output = 0;
+//
+//	//Output binary vector
+//	int output = 0;
 
 	reset();
 	while(1) {
@@ -147,37 +198,63 @@ int main(void) {
 		//Check if we need to start timers
 		if(_DDDPacemaker_local_LRI_start == 1) {
 			printf("LRI timer started, Apace:%d ", APace);
-			alt_alarm_start(&lri_timer, LRI_VALUE, timer_isr_function, lri_context);
+			alt_alarm_start(&lri_timer, LRI_VALUE, lri_timer_isr, lri_context);
 			_DDDPacemaker_local_LRI_start = 0;
 		}
 		if(_DDDPacemaker_local_URI_start == 1) {
 			printf("URI timer started, Apace:%d ", APace);
-			alt_alarm_start(&uri_timer, URI_VALUE, timer_isr_function, uri_context);
+			alt_alarm_start(&uri_timer, URI_VALUE, uri_timer_isr, uri_context);
 			_DDDPacemaker_local_URI_start = 0;
 		}
 		if(_DDDPacemaker_local_AVI_start == 1) {
 			printf("AVI timer started, Apace:%d ", APace);
-			alt_alarm_start(&avi_timer, AVI_VALUE, timer_isr_function, avi_context);
+			alt_alarm_start(&avi_timer, AVI_VALUE, avi_timer_isr, avi_context);
 			_DDDPacemaker_local_AVI_start = 0;
 		}
 		if(_DDDPacemaker_local_AEI_start== 1) {
 			printf("AEI timer started, Apace:%d ", APace);
-			alt_alarm_start(&aei_timer, 5000, timer_isr_function, aei_context);
+			alt_alarm_start(&aei_timer, 5000, aei_timer_isr, aei_context);
 			_DDDPacemaker_local_AEI_start= 0;
 			//printf("AEI timer stopped");
 		}
 		if(_DDDPacemaker_local_VRP_start == 1) {
 			printf("VRP timer started, Apace:%d ", APace);
-			alt_alarm_start(&vrp_timer, VRP_VALUE, timer_isr_function, vrp_context);
+			alt_alarm_start(&vrp_timer, VRP_VALUE, vrp_timer_isr, vrp_context);
 			_DDDPacemaker_local_VRP_start = 0;
 		}
 		if(_DDDPacemaker_local_PVARP_start == 1) {
 			printf("PVARP timer started, Apace:%d ", APace);
-			alt_alarm_start(&pvarp_timer, PVARP_VALUE, timer_isr_function, pvarp_context);
+			alt_alarm_start(&pvarp_timer, PVARP_VALUE, pvarp_timer_isr, pvarp_context);
 			_DDDPacemaker_local_PVARP_start = 0;
 		}
 //		printf("LRI:%d, URI:%d, AVI:%d, AEI:%d, VRP:%d, PVARP:%d\n", \
 //				_DDDPacemaker_local_LRI_start, _DDDPacemaker_local_URI_start,_DDDPacemaker_local_AVI_start,_DDDPacemaker_local_AEI_start, _DDDPacemaker_local_VRP_start,_DDDPacemaker_local_PVARP_start);
+
+		// Stop alarms and reset timeout
+		if (_DDDPacemaker_local_LRI_ex == 1) {
+			LRI_TO = 0;
+			alt_alarm_stop(&lri_timer);
+		}
+//		if (_DDDPacemaker_local_URI_ex == 1) { // ????????? why does it say this is undeclared
+//			URI_TO = 0;
+//			alt_alarm_stop(&uri_timer);
+//		}
+		if (_DDDPacemaker_local_AVI_ex == 1) {
+			AVI_TO = 0;
+			alt_alarm_stop(&avi_timer);
+		}
+		if (_DDDPacemaker_local_AEI_ex == 1) {
+			AEI_TO = 0;
+			alt_alarm_stop(&aei_timer);
+		}
+		if (_DDDPacemaker_local_VRP_ex == 1) {
+			VRP_TO = 0;
+			alt_alarm_stop(&vrp_timer);
+		}
+		if (_DDDPacemaker_local_PVARP_ex == 1) {
+			PVARP_TO = 0;
+			alt_alarm_stop(&pvarp_timer);
+		}
 
 		int led_interrupt = 1;
 		void* led_context = (void*) &led_interrupt;
