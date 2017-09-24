@@ -5,7 +5,7 @@
 #define AEI_VALUE 800
 #define PVARP_VALUE 50
 #define VRP_VALUE 150
-#define LRI_VALUE 950
+#define LRI_VALUE 1200
 #define URI_VALUE 900
 
 #endif
