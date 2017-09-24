@@ -57,7 +57,6 @@ static int mode = 0;
 alt_u32 timer_isr_function(void* context) {
 	char *signal = (char*)context;
 	*signal = 1;
-	printf("timer stopped, Apace:%d\n", APace);
 	return 0;
 }
 
@@ -83,40 +82,44 @@ int main(void) {
 	// Initialise the value of the buttons to be 0
 	int buttons = 0;
 
+	// Initialise UART
 	int fildes = open(UART_NAME,O_NONBLOCK | O_RDWR);
 	char data;
 	char *buffer;
 
 	reset();
+
 	while(1) {
 		mode_set(); // check if mode has been changed
-		if (mode == 1) {
+		if (mode == 1) { // mode 2; enable UART communication and read in VSense, ASense
 			data = read(fildes, buffer, 1);
-			if (*buffer == 'V') {
+			if (*buffer == 'V') { // VSense high, as if actuating buttons KEY0
 				buttons = 1;
 			}
-			else if (*buffer == 'A') {
+			else if (*buffer == 'A') { // ASense high, as if actuating buttons KEY1
 				buttons = 2;
 			}
 			*buffer = 0;
 		}
-		else if (mode == 0) {
-			buttons = IORD_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE);
-			IOWR_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE, 0);
+		else if (mode == 0) { // mode 1, buttons should be 'enabled' as hardware IO
+			buttons = IORD_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE); // read the value of the buttons
+			IOWR_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE, 0); // clear the edge cap register
 		}
 
-		if (buttons == 1) {
-			VSense = 1;
-			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 1); // LED0
-			VSense_led_ticks = MAX_LED_TICKS;
+		if (buttons == 1) { // KEY0 pressed, VSense input
+			VSense = 1; // assert VSense
+			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 1); // turn on LED0
+			VSense_led_ticks = MAX_LED_TICKS; // Start VSense LED ticks counter
+			// Reset the other LED counters
 			VPace_led_ticks = -1;
 			APace_led_ticks = -1;
 			ASense_led_ticks = -1;
 		}
-		else if (buttons == 2) {
-			ASense = 1;
-			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 2); // LED1
-			ASense_led_ticks = MAX_LED_TICKS;
+		else if (buttons == 2) { // KEY1 pressed, ASense input
+			ASense = 1; // assert ASense
+			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 2); // turn on LED1
+			ASense_led_ticks = MAX_LED_TICKS; // start ASense LED tickers counter
+			// Reset the other LED counters
 			VSense_led_ticks = -1;
 			VPace_led_ticks = -1;
 			APace_led_ticks = -1;
@@ -126,6 +129,7 @@ int main(void) {
 		//Call tick
 		tick();
 
+		// Send VPace and APace data via UART
 		if (mode == 1) {
 			if (APace == 1) {
 				*buffer = 'A';
@@ -138,12 +142,15 @@ int main(void) {
 		}
 
 
-		// Reset input
+		// Reset inputs
 		buttons = 0;
 		VSense = 0;
 		ASense = 0;
 
-		// Check if timers need to be started, start them
+		/* Start the appropriate timers
+		* Starts the alarm, passing in the context as the timeout signal
+		* Timeout will be asserted high (to be passed into FSM) when the timer times out
+		*/
 		if(LRI_start == 1) {
 			alt_alarm_start(&lri_timer, LRI_VALUE, timer_isr_function, lri_context);
 			LRI_start = 0;
@@ -169,10 +176,10 @@ int main(void) {
 			PVARP_start = 0;
 		}
 
-		// Stop alarms and reset timeout
+		// Stop alarms and de-assert timeout
 		if (LRI_ex == 1) {
-			LRI_TO = 0;
-			alt_alarm_stop(&lri_timer);
+			LRI_TO = 0; // de-assert timeout
+			alt_alarm_stop(&lri_timer); // stop alarm
 		}
 		if (URI_ex == 1) {
 			URI_TO = 0;
@@ -197,23 +204,29 @@ int main(void) {
 
 		// Process pacing outputs
 		if(VPace == 1) {
-			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 4); // LED2
-			VPace_led_ticks = MAX_LED_TICKS;
+			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 4); // turn on LED2
+			VPace_led_ticks = MAX_LED_TICKS; // start VPace LED ticks counter
+			// Reset the other LED tick counters
 			APace_led_ticks = -1;
 			VSense_led_ticks = -1;
 			ASense_led_ticks = -1;
 		}
 		if(APace == 1) {
-			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 8); // LED3
-			APace_led_ticks = MAX_LED_TICKS;
+			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 8); // turn on LED3
+			APace_led_ticks = MAX_LED_TICKS; // start APace LED ticks counter
+			// Reset the other LED tick counters
 			VPace_led_ticks = -1;
 			VSense_led_ticks = -1;
 			ASense_led_ticks = -1;
 		}
 
-		// Tick LEDs
+		/* Tick LEDs
+		 * LEDs are kept on for MAX_LED_TICKS - 500 ticks.
+		 * Each tick, the appropriate counter (x_led_ticks) is decremented
+		 * Once the counter reaches 0, the LEDs are turned off
+		 */
 		if (APace_led_ticks > 0) {
-			APace_led_ticks--;
+			APace_led_ticks--; // decrement
 		}
 		else if (APace_led_ticks == 0){
 			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 0); // turn off LED
@@ -232,6 +245,7 @@ int main(void) {
 		else if (VSense_led_ticks == 0) {
 			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 0);
 		}
+
 		if (ASense_led_ticks > 0) {
 			ASense_led_ticks--;
 		}
