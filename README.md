@@ -4,7 +4,7 @@
 Upload the provided .sof file onto the DE2 board, run NIOS II and import in the cs303a2 and cs303a2_bsp files respectively.
 TO SWITCH MODE: Use SW0. SW0 low = Mode 1, SW0 high = Mode 2.
 
-KNOWN BUG: The DE2 will freeze occasionally if the system is switched from Mode 1 or Mode 2, or on VS/AS input spam. Re-programming to the DE2 device is required.
+KNOWN BUG: The DE2 will freeze occasionally if the system is switched from Mode 1 or Mode 2 mid-operation. Switch to your desired mode and re-program the DE2 device.
 
 #### Mode 1 testing: 
 - Use the buttons on the DE2 board to assert inputs
