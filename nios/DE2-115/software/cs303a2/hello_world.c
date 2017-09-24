@@ -48,8 +48,12 @@ static alt_alarm vrp_timer;
 
 #define MAX_LED_TICKS 500
 
-static int mode;
+static int mode = 0;
 
+/* DESCRIPTION:	Handles timers
+ * PARAMETER: 	Context - opaque reference to timeout signal
+ * RETURN:		0; stops the timer
+ */
 alt_u32 timer_isr_function(void* context) {
 	char *signal = (char*)context;
 	*signal = 1;
@@ -57,79 +61,9 @@ alt_u32 timer_isr_function(void* context) {
 	return 0;
 }
 
-//// AVI timer
-//alt_u32 avi_timer_isr(void* context) {
-//	volatile int* trigger = (volatile int*) context;
-//	*trigger = 1;
-//	AVI_TO = 1;
-//	printf("AVI timeout");
-//	return 0;
-//}
-//
-//alt_u32 aei_timer_isr(void* context) {
-//	volatile int* trigger = (volatile int*) context;
-//	*trigger = 1;
-//	AEI_TO = 1;
-//	printf("AEI timeout");
-//	return 0;
-//}
-//
-//alt_u32 vrp_timer_isr(void* context) {
-//	volatile int* trigger = (volatile int*) context;
-//	*trigger = 1;
-//	VRP_TO = 1;
-//	printf("VRP timeout");
-//	return 0;
-//}
-//
-//alt_u32 pvarp_timer_isr(void* context) {
-//	volatile int* trigger = (volatile int*) context;
-//	*trigger = 1;
-//	PVARP_TO = 1;
-//	printf("PVARP timeout");
-//	return 0;
-//}
-//
-//alt_u32 lri_timer_isr(void* context) {
-//	volatile int* trigger = (volatile int*) context;
-//	*trigger = 1;
-//	LRI_TO = 1;
-//	printf("LRI timeout");
-//	return 0;
-//}
-//
-//alt_u32 uri_timer_isr(void* context) {
-//	volatile int* trigger = (volatile int*) context;
-//	*trigger = 1;
-//	PVARP_TO = 1;
-//	printf("URI timeout");
-//	return 0;
-//}
-
-alt_u32 led_off_isr_function(void *context) {
-	IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 0);
-
-	return 0;
-}
-
-void button_isr_function(void *context, alt_u32 id) {
-
-	//Store button state in context
-	//*buttonState = IORD_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE);
-	int temp = IORD_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE);
-	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(BUTTONS_BASE, 0);
-
-	if (temp == 1) { // key0 pressed
-		VSense = 1;
-
-		//IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 1);
-	}
-	else if (temp == 2) { // key1 pressed
-		ASense = 1;
-		//IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 2);
-	}
-}
-
+/* This function changes the mode depending on the value of the switches (only using sw0)
+ * The value of the switches is polled for in the while loop
+ */
 void mode_set() {
 	if ((IORD_ALTERA_AVALON_PIO_DATA(SWITCHES_BASE) & 0x01) == 1) {
 		mode = 1; // mode 1
@@ -140,18 +74,13 @@ void mode_set() {
 }
 
 int main(void) {
-	//Initialisation here
-
-	//IO Signals
-	mode = 0;
-	//int switchState = 0;
-
+	// Initialise the counters which will dictate how many ticks the LEDs should be on for
 	int VPace_led_ticks = 0;
 	int APace_led_ticks = 0;
 	int VSense_led_ticks = 0;
 	int ASense_led_ticks = 0;
 
-	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(BUTTONS_BASE, 0x3);
+	// Initialise the value of the buttons to be 0
 	int buttons = 0;
 
 	int fildes = open(UART_NAME,O_NONBLOCK | O_RDWR);
@@ -183,7 +112,6 @@ int main(void) {
 			VPace_led_ticks = -1;
 			APace_led_ticks = -1;
 			ASense_led_ticks = -1;
-			printf("VSense detected ");
 		}
 		else if (buttons == 2) {
 			ASense = 1;
@@ -192,7 +120,6 @@ int main(void) {
 			VSense_led_ticks = -1;
 			VPace_led_ticks = -1;
 			APace_led_ticks = -1;
-			printf("ASense detected ");
 		}
 
 
@@ -218,33 +145,26 @@ int main(void) {
 
 		// Check if timers need to be started, start them
 		if(LRI_start == 1) {
-			printf("LRI timer started, Apace:%d ", APace);
 			alt_alarm_start(&lri_timer, LRI_VALUE, timer_isr_function, lri_context);
 			LRI_start = 0;
 		}
 		if(URI_start == 1) {
-			printf("URI timer started, Apace:%d ", APace);
 			alt_alarm_start(&uri_timer, URI_VALUE, timer_isr_function, uri_context);
 			URI_start = 0;
 		}
 		if(AVI_start == 1) {
-			printf("AVI timer started, Apace:%d ", APace);
 			alt_alarm_start(&avi_timer, AVI_VALUE, timer_isr_function, avi_context);
 			AVI_start = 0;
 		}
 		if(AEI_start== 1) {
-			printf("AEI timer started, Apace:%d ", APace);
 			alt_alarm_start(&aei_timer, AEI_VALUE, timer_isr_function, aei_context);
 			AEI_start= 0;
-			//printf("AEI timer stopped");
 		}
 		if(VRP_start == 1) {
-			printf("VRP timer started, Apace:%d ", APace);
 			alt_alarm_start(&vrp_timer, VRP_VALUE, timer_isr_function, vrp_context);
 			VRP_start = 0;
 		}
 		if(PVARP_start == 1) {
-			printf("PVARP timer started, Apace:%d ", APace);
 			alt_alarm_start(&pvarp_timer, PVARP_VALUE, timer_isr_function, pvarp_context);
 			PVARP_start = 0;
 		}
@@ -277,17 +197,13 @@ int main(void) {
 
 		// Process pacing outputs
 		if(VPace == 1) {
-			printf("Vpace = 1\n");
 			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 4); // LED2
 			VPace_led_ticks = MAX_LED_TICKS;
 			APace_led_ticks = -1;
 			VSense_led_ticks = -1;
 			ASense_led_ticks = -1;
-			//VPace = 0;
 		}
 		if(APace == 1) {
-			//output = 2;
-			printf("Apace = 1\n");
 			IOWR_ALTERA_AVALON_PIO_DATA(LEDS_GREEN_BASE, 8); // LED3
 			APace_led_ticks = MAX_LED_TICKS;
 			VPace_led_ticks = -1;
